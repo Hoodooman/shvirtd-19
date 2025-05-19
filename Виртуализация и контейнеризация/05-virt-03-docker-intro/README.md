@@ -21,4 +21,4 @@ Hey, Netology
 ---
 ## Решение
 
-[https://hub.docker.com/repository/docker/popmatrix007/custom-nginx/general](https://hub.docker.com/repository/docker/popmatrix007/custom-nginx/general)
+![https://hub.docker.com/repository/docker/popmatrix007/custom-nginx/general](https://hub.docker.com/repository/docker/popmatrix007/custom-nginx/general)
