@@ -47,7 +47,7 @@ variable "vms_ssh_public_root_key" {
 
 variable "token" {
   type        = string
-  default     = "t1.9euelZqczJ2SjcePnoucz82XkcuXj-3rnpWakpXMyZDKks3Ol5qTncfJz83l8_dmRDE9-e9DGwFG_t3z9yZzLj3570MbAUb-zef1656VmsvMyJSanpiPi4_KzcjNyZTO7_zF656VmsvMyJSanpiPi4_KzcjNyZTO.g1NTYBwnHT2GXu310xAf88CrqT5gb-MIYcR63joBr4eZgTDt4G3aGkGMZPk82TphQdCQV8mqVzd0La2UU_orBA"
+  default     = "t1.9euelqczJ2SjcePnoucz82XkcuXj-rnpWakpXMyZDKks3Ol5qTncfJz83l8_dmRDE9-e9DGwFG_t3z9yZzLj3570MbAUb-zef1656VmsvMyJSanpiPi4_KzcjNyZTO7_zF656VmsvMyJSanpiPi4_KzcjNyZTO.g1NTYBwnHT2GXu310xAf88CrqT5gb-MIYcR63joBr4eZgTDt4G3aGkGMZPk82TphQdCQV8mqVzd0La2UU_orBA"
   description = "IAM token 12 hours lifecycle"
 }
 
