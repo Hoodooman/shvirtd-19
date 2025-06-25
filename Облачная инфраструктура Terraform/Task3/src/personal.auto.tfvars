@@ -1,3 +1,3 @@
-token  =  "t1.9euelZqTjo3Gmc7PnpWNmY-JkcnPle3rnpWakpXMyZDKks3Ol5qTncfJz83l8_dJdxE9-e97eQde_N3z9wkmDz3573t5B178zef1656VmsiQmJzNi4vKyJ6PjJORmJqJ7_zF656VmsiQmJzNi4vKyJ6PjJORmJqJ.RAoUCPhurgfVjI0kxyoS09IDkVVfLPsLR86Gjl9pQNJv36k_JfaSeJ1LYN-dObhOg7kmtC8Bstt0jfM4dSWHCw"
+token  =  "t1.9euelZqTjo3Gmc7PnpWNmY-<...>"
 #cloud_id  = ""
 #folder_id = ""
