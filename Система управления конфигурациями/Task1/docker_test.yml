@@ -1,0 +1,19 @@
+---
+- name: Test Docker container connectivity
+  hosts: all  # или конкретная группа: el, deb
+  tasks:
+    - name: Ping test
+      ansible.builtin.ping:
+
+    - name: Show OS info
+      ansible.builtin.debug:
+        var: ansible_distribution
+
+    - name: Run a test command (e.g., check kernel)
+      ansible.builtin.command: uname -a
+      register: kernel_info
+      changed_when: false
+
+    - name: Display kernel info
+      ansible.builtin.debug:
+        var: kernel_info.stdout
