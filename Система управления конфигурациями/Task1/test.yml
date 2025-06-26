@@ -1,0 +1,8 @@
+---
+- name: Manage Docker containers
+  hosts: all
+  connection: community.docker.docker
+  tasks:
+    - name: Check container OS
+      debug:
+        msg: "This is {{ ansible_distribution }} {{ ansible_distribution_version }}"
