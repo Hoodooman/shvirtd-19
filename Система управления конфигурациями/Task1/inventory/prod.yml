@@ -1,0 +1,10 @@
+el:
+  hosts:
+    centos_host:
+      ansible_connection: docker
+      ansible_docker_image: centos:7  # явное указание образа
+deb:
+  hosts:
+    ubuntu_host:
+      ansible_connection: docker
+      ansible_docker_image: ubuntu:20.04
