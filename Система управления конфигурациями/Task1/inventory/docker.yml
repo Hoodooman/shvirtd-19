@@ -1,0 +1,10 @@
+plugin: community.docker.docker_containers
+docker_host: unix://var/run/docker.sock
+groups:
+  debian_containers:
+    names:
+      - debian_host
+      - ubuntu_host
+  centos_containers:
+    names:
+      - centos_host
