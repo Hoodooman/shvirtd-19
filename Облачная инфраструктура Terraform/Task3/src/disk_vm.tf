@@ -1,35 +1,35 @@
 resource "yandex_compute_disk" "storage_disks" {
-  count = 3
+  count = var.storage_disks_count
 
-  name     = "storage-disk-${count.index}"
-  type     = "network-hdd"
-  zone     = "ru-central1-a"
-  size     = 1
+  name     = "${var.storage_name}-${count.index}"
+  type     = var.storage_disk_type
+  zone     = var.zone
+  size     = var.storage_disk_size
 }
 
 resource "yandex_compute_instance" "storage" {
-  name        = "storage"
-  platform_id = "standard-v1"
-  zone        = "ru-central1-a"
+  name        = var.storage_instance_name
+  platform_id = var.storage_platform_id
+  zone        = var.zone
 
   resources {
-    cores  = 2
-    memory = 1
-	core_fraction = 5
+    cores         = var.storage_instance_cores
+    memory        = var.storage_instance_memory
+    core_fraction = var.storage_instance_core_fraction
   }
 
   boot_disk {
     initialize_params {
       image_id = data.yandex_compute_image.ubuntu.image_id
-	  type     = "network-hdd"
-      size     = 5	  
+      type     = var.boot_disk_type
+      size     = var.boot_disk_size
     }
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.develop.id 
-    nat       = true
-    security_group_ids = [yandex_vpc_security_group.example.id] 
+    subnet_id          = yandex_vpc_subnet.develop.id
+    nat                = true
+    security_group_ids = [yandex_vpc_security_group.example.id]
   }
 
   dynamic "secondary_disk" {
@@ -38,9 +38,9 @@ resource "yandex_compute_instance" "storage" {
       disk_id = secondary_disk.value.id
     }
   }
-  
+
   metadata = {
-    serial-port-enable = 1  
-    ssh-keys = "ubuntu:${local.ssh_key}"
-  }  
+    serial-port-enable = var.serial_port_enable
+    ssh-keys          = "ubuntu:${local.ssh_key}"
+  }
 }
