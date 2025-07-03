@@ -1,6 +1,6 @@
 files/*
 *.tfstate
 *.tfstate.backup
-.terrform*
+.terraform*
 *auto.tfvars
 _*
