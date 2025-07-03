@@ -1,0 +1,33 @@
+---
+# Настройки репозитория ClickHouse
+clickhouse_repo_url: "https://packages.clickhouse.com/deb"
+clickhouse_gpg_key_url: "https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key"
+clickhouse_version: "stable" 
+
+# Устанавливаемые пакеты
+clickhouse_packages:
+  - clickhouse-server
+  - clickhouse-client
+
+# Зависимости
+prerequisite_packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+
+# Настройки базы данных
+clickhouse_databases:
+  - name: logs
+    engine: Atomic  # default replace older Ordinary 
+
+
+# Настройки сервиса
+clickhouse_service: clickhouse-server
+clickhouse_service_state: started
+clickhouse_service_enabled: true
+
+# Пути для ключей
+clickhouse_key_temp_path: /tmp/clickhouse-key.gpg
+clickhouse_keyring_path: /usr/share/keyrings/clickhouse-keyring.gpg
+

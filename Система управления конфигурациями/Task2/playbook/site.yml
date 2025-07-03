@@ -1,0 +1,117 @@
+---
+- name: Install ClickHouse
+  hosts: clickhouse
+  become: true  
+  tasks:
+    - name: Install prerequisite packages
+      apt:
+        name: "{{ prerequisite_packages }}"
+        state: present
+        update_cache: no
+
+    - name: Download ClickHouse GPG key
+      ansible.builtin.get_url:
+        url: "{{ clickhouse_gpg_key_url }}"
+        dest: "{{ clickhouse_key_temp_path }}"
+        mode: '0644'
+
+    - name: ClickHouse GPG key to keyring
+      ansible.builtin.command:
+        cmd: "gpg --dearmor -o {{ clickhouse_keyring_path }} {{ clickhouse_key_temp_path }}"
+        creates: "{{ clickhouse_keyring_path }}"
+
+    - name: Add ClickHouse repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by={{ clickhouse_keyring_path }} arch={{ ansible_architecture }}] {{ clickhouse_repo_url }} {{ clickhouse_version }} main"
+        state: present
+        filename: clickhouse
+
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install ClickHouse packages
+      apt:
+        name: "{{ clickhouse_packages }}"
+        state: present
+
+    - name: Manage ClickHouse service
+      ansible.builtin.service:
+        name: "{{ clickhouse_service }}"
+        state: "{{ clickhouse_service_state }}"
+        enabled: "{{ clickhouse_service_enabled }}"
+
+      notify: Start clickhouse service
+    - name: Flush handlers
+      meta: flush_handlers
+    - name: Create database and table
+      block:
+        - name: Create database
+          ansible.builtin.command:
+            cmd: "clickhouse-client -q 'CREATE DATABASE IF NOT EXISTS logs'"
+          register: create_db
+          failed_when: create_db.rc != 0 and create_db.rc != 82  # 82 = already exists
+
+        - name: Create table
+          ansible.builtin.command:
+            cmd: >
+              clickhouse-client -q '
+              CREATE TABLE IF NOT EXISTS logs.vector_log (
+                id UInt64,
+                name String
+              ) ENGINE = MergeTree()
+              ORDER BY id'
+          register: create_table
+          failed_when: create_table.rc != 0
+      when: inventory_hostname in groups['clickhouse']     
+
+    - name: Verify databases
+      ansible.builtin.command: "clickhouse-client -q 'SHOW DATABASES'"
+      register: existing_dbs
+      changed_when: false
+
+  handlers:
+    - name: Start clickhouse service
+      become: true
+      ansible.builtin.service:
+        name: clickhouse-server
+        state: restarted       
+
+- name: Install and configure Vector
+  hosts: vector
+  become: true
+  tasks:
+    - name: Download Vector package
+      ansible.builtin.get_url:
+        url: "{{ vector_download_url }}"
+        dest: "/tmp/{{ vector_deb_package }}"
+        mode: '0644'
+
+    - name: Install Vector package
+      ansible.builtin.apt:
+        deb: "/tmp/{{ vector_deb_package }}"
+
+    - name: Create Vector config directory
+      ansible.builtin.file:
+        path: "{{ vector_config_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Deploy Vector configuration from template
+      ansible.builtin.template:
+        src: templates/vector.yml.j2
+        dest: "{{ vector_config_dir }}/{{ vector_config_file }}"
+        mode: '0644'
+      notify: Restart Vector
+
+    - name: Start and enable Vector service
+      ansible.builtin.service:
+        name: vector
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Restart Vector
+      ansible.builtin.service:
+        name: vector
+        state: restarted
