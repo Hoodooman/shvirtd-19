@@ -1,0 +1,3 @@
+---
+lighthouse_dir: /opt/lighthouse
+nginx_conf_dir: /etc/nginx/conf.d

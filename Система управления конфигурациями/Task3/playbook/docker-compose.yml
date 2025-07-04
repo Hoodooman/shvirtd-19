@@ -1,0 +1,18 @@
+services:
+  clickhouse:
+    image: centos:7
+    container_name: clickhouse-01
+    command: sleep infinity
+    privileged: true
+  
+  vector:
+    image: centos:7
+    container_name: vector-01
+    command: sleep infinity
+    privileged: true    
+
+  lighthouse:
+    image: centos:7
+    container_name: lighthouse-01
+    command: sleep infinity
+    privileged: true      
