@@ -1,0 +1,12 @@
+sources:
+  clickhouse:
+    type: clickhouse
+    hosts: clickhouse-01
+    database: logs
+    table: vector_log
+
+sinks:
+  console:
+    type: console
+    inputs: ["clickhouse"]
+    encoding: json

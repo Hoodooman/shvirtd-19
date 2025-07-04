@@ -1,0 +1,6 @@
+files/*
+*.tfstate
+*.tfstate.backup
+.terraform*
+*auto.tfvars
+_*
