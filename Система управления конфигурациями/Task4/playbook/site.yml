@@ -1,0 +1,22 @@
+---
+- name: Install ClickHouse
+  hosts: clickhouse
+  become: true 
+  roles:
+    - clickhouse
+
+- name: Install Vector
+  hosts: vector
+  become: true 
+  roles:
+    - vector
+
+- name: Install Lighthouse
+  hosts: lighthouse
+  become: true 
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+  roles:
+    - lighthouse

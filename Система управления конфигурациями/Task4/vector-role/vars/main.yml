@@ -1,0 +1,7 @@
+---
+# vars file for vector-role
+vector_version: "0.33.0"
+vector_config_dir: "/etc/vector"
+vector_config_file: "vector.yml"
+vector_deb_package: "vector_{{ vector_version }}-1_amd64.deb"
+vector_download_url: "https://packages.timber.io/vector/{{ vector_version }}/{{ vector_deb_package }}"

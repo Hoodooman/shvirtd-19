@@ -1,0 +1,49 @@
+---
+# tasks file for lighthouse-role
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - nginx
+    - git
+    - python3-pip
+  notify: restart nginx
+
+- name: Ensure Lighthouse directory exists
+  ansible.builtin.file:
+    path: "{{ lighthouse_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Clone Lighthouse repo
+  ansible.builtin.git:
+    repo: "https://github.com/VKCOM/lighthouse.git"
+    dest: "{{ lighthouse_dir }}"
+    version: master
+    force: yes
+    update: yes
+
+- name: Configure nginx for Lighthouse
+  ansible.builtin.template:
+    src: templates/lighthouse.yml.j2
+    dest: "{{ nginx_conf_dir }}/lighthouse.conf"
+    mode: '0644'
+  notify: restart nginx
+
+- name: Disable default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Ensure nginx service is running and enabled
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

@@ -1,0 +1,4 @@
+---
+# defaults file for lighthouse-role
+ansible_python_interpreter: /usr/bin/python
+ansible_python_interpreter_discovery: auto_silent

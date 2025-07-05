@@ -1,0 +1,4 @@
+---
+# vars file for lighthouse-role
+lighthouse_dir: /opt/lighthouse
+nginx_conf_dir: /etc/nginx/conf.d
