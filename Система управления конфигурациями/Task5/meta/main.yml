@@ -1,0 +1,15 @@
+galaxy_info:
+  author: shvirtd-19
+  role_name: "vector_role"            # Только буквы, цифры и подчёркивания
+  description: "Install and configure Vector"
+  company: freelance
+  license: "MIT"
+  min_ansible_version: "2.9"
+  platforms:
+    - name: "Ubuntu"
+      versions: ["bionic", "focal", "jammy"]
+    - name: "EL"
+      versions: ["7","8","9"]
+  galaxy_tags: ["logging", "observability"]
+
+dependencies: []
