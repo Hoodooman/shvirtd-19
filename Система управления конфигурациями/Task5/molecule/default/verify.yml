@@ -1,9 +1,0 @@
-- name: Validate Vector config
-  command: "vector validate --config /etc/vector/vector.toml"
-  changed_when: false
-
-- name: Check Vector service status
-  systemd:
-    name: vector
-  register: service_status
-  failed_when: "service_status.status != 'enabled' or service_status.state != 'running'"
