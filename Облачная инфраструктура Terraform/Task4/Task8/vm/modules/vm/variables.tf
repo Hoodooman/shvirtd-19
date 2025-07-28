@@ -46,16 +46,6 @@ variable "ssh_public_keys" {
 
 ### module variables
 
-variable "access_key" {
-  type        = string
-  description = "access_key"
-}
-
-variable "secret_key" {
-  type        = string
-  description = "secret_key"
-}
-
 variable "env_name" {
   type        = string
   description = "name"

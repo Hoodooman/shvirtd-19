@@ -12,6 +12,9 @@ terraform {
     endpoints = {
       s3 = "https://storage.yandexcloud.net"
     }
+
+    shared_credentials_files = ["~/.aws/credentials"]
+
     bucket = "ter-hw-04"
     region = "ru-central1"
     key    = "vm/terraform.tfstate"
