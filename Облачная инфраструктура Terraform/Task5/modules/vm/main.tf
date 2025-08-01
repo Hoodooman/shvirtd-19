@@ -25,7 +25,7 @@ data "template_file" "cloudinit" {
 }
 
 module "vm" {
-  source         = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=main"
+  source         = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=09144db7f136b793064f1ac593fe2ac6921932f0"
   env_name       = var.env_name
   #network_id     = data.terraform_remote_state.vpc.outputs.network_id
   network_id     = var.network_id  
