@@ -104,6 +104,20 @@ Pull лучше для статичных сетей, где важны безо
 Push предпочтительнее в динамических средах (облака, микросервисы), где важна оперативность.</br>
 Часто используют гибридные системы (например, VictoriaMetrics поддерживает оба подхода).
 
+# Решение Задание 6
+
+1. Pull-модель (забирают данные сами)</br>
+Prometheus – работает по Pull-модели: сервер сам опрашивает цели (targets) по HTTP.</br>
+
+2. Push-модель (агенты отправляют данные)</br>
+TICK (Telegraf + InfluxDB + Chronograf + Kapacitor) – Telegraf (агент) отправляет данные в InfluxDB (Push).</br>
+Nagios – традиционно использует Push через NRPE (Nagios Remote Plugin Executor) или NSCA (Nagios Service Check Acceptor).</br>
+
+3. Гибридные (поддерживают обе модели)</br>
+Zabbix – может работать в обеих моделях:</br>
+Pull – Zabbix-сервер сам опрашивает агентов.</br>
+Push – агенты могут отправлять данные через Zabbix Trapper или Active Checks.</br>
+VictoriaMetrics – хоть и совместима с Prometheus (Pull), но также поддерживает Push через /api/v1/import/prometheus и другие API.
 
 
 
