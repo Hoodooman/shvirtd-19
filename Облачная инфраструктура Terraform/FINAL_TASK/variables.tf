@@ -2,7 +2,6 @@
 
 variable "token" {
   type        = string
-  default     = "t1.9euelZqJnsrHjI-PypnNlIzNz8edjO3rnpWakpXMyZDKks3Ol5qTncfJz83l8_cmWgg8-e9nBAAe_d3z92YIBjz572cEAB79zef1656VmpjOnMqYjpyUyYmSyJWVk5OJ7_zF656VmpjOnMqYjpyUyYmSyJWVk5OJ.8sbOYGOIsMZDhjvujJFdCfngNwtzvKKkCszJWRM6O7gJeesfjUIqAdJiUv0jBun1PGnxUcos5On73_EIHn_XAg"
   description = "yc iam create-token"
 }
 
@@ -48,6 +47,34 @@ variable "ssh_public_keys" {
 variable "lockbox_secret_id" {
   type        = string
   description = "ID секрета"
+}
+
+###mysql_cluster
+
+variable "disk_size" {
+  description = "Disk size for hosts"
+  type        = number
+  default     = 10
+}
+
+variable "disk_type" {
+  description = "Disk type for hosts"
+  type        = string
+  default     = "network-hdd"
+}
+
+variable "resource_preset_id" {
+  description = "Preset for hosts"
+  type        = string
+  default     = "b1.medium"
+}
+
+###web_vm
+
+variable "image_family" {
+  type        = string
+  default     = "ubuntu-2004-lts"
+  description = "image"
 }
 
 variable "sec_file" {

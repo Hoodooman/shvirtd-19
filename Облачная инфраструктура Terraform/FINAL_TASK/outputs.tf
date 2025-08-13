@@ -45,5 +45,5 @@ output "FQDN" {
 
 output "vm_ip" {
   description = "ip"
-  value       = try(module.web_vm.public_ip, null)
+  value       = try(module.web_vm.external_ip_address[0], null)
 }

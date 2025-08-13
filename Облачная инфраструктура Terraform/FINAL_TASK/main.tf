@@ -1,3 +1,13 @@
+### vpc 
+module "vpc" {
+  source = "./modules/vpc"
+  vpc_name      = "moex"
+  default_zone  = var.default_zone
+  default_cidr  = var.default_cidr
+}
+
+
+### mysql cluster
 data "yandex_lockbox_secret" "db_credentials" {
   secret_id = var.lockbox_secret_id
 }
@@ -6,15 +16,9 @@ data "yandex_lockbox_secret_version" "current" {
   secret_id = data.yandex_lockbox_secret.db_credentials.id
 }
 
-module "vpc" {
-  source = "./modules/vpc"
-  vpc_name      = "moex"
-  default_zone  = var.default_zone
-  default_cidr  = var.default_cidr
-}
-
 module "moex_cluster" {
-  source        = "./modules/terraform-yc-mysql"
+  #source        = "./modules/terraform-yc-mysql"
+  source        = "git::https://github.com/terraform-yc-modules/terraform-yc-mysql.git"
   name          = "moex"
   network_id    = module.vpc.network_id
   depends_on    = [module.vpc,yandex_vpc_security_group.moex_app]
@@ -37,6 +41,11 @@ module "moex_cluster" {
       subnet_id        = module.vpc.subnet_id
     }
   ]
+
+  disk_size          = var.disk_size
+  disk_type          = var.disk_type
+  resource_preset_id = var.resource_preset_id
+  
 
   mysql_config = {
     sql_mode                      = "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
@@ -61,18 +70,6 @@ module "moex_cluster" {
       ]
     }
   ]
-}
-
-module "web_vm" {
-  source        = "./modules/vm"
-  env_name      = "moex-app"
-  instance_name = "wm"
-  owner         = "alexz"
-  network_id    = module.vpc.network_id
-  subnet_id     = module.vpc.subnet_id
-  sec_group     = yandex_vpc_security_group.moex_app.id
-  depends_on    = [module.vpc,yandex_vpc_security_group.moex_app,module.moex_cluster]
-  token         = var.token
 }
 
 resource "null_resource" "create_stock_quotes_table" {
@@ -111,13 +108,13 @@ resource "null_resource" "generate_env" {
 }
 
 resource "null_resource" "copy_mysql_env" {
-  depends_on = [null_resource.generate_env]
+  depends_on = [null_resource.generate_env, module.web_vm]
 
   connection {
     type        = "ssh"
     user        = "ubuntu"
     private_key = file(var.sec_file)
-    host        = module.web_vm.public_ip
+    host        = module.web_vm.external_ip_address[0]
   }
 
   provisioner "file" {
@@ -126,46 +123,111 @@ resource "null_resource" "copy_mysql_env" {
   }
 }
 
-resource "null_resource" "copy_mysql_dockerfile" {
-  depends_on = [null_resource.generate_env]
+### virtual machine
 
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file(var.sec_file)
-    host        = module.web_vm.public_ip
+data "template_cloudinit_config" "app_config" {
+  gzip          = false
+  base64_encode = false
+
+  part {
+    content_type = "text/cloud-config"
+    content = yamlencode({
+      users = [
+        {
+          name              = "ubuntu"
+          groups            = "sudo"
+          shell             = "/bin/bash"
+          sudo              = "ALL=(ALL) NOPASSWD:ALL"
+          ssh_authorized_keys = var.ssh_public_keys
+        }
+      ]
+      package_update = true
+      package_upgrade = true
+      packages = [
+        "apt-transport-https",
+        "ca-certificates",
+        "curl",
+        "gnupg",
+        "lsb-release"
+      ]
+    })
   }
 
-  provisioner "file" {
-    source      = "Dockerfile"
-    destination = "/home/ubuntu/Dockerfile"
-  }
+part {
+  content_type = "text/x-shellscript"
+  content = <<-EOT
+    #!/bin/bash
+    set -e  # Exit on error
+    set -x  # Print commands
+    
+    echo "Installing Docker..."
+    sudo mkdir -p /etc/apt/keyrings/
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt-get update
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo usermod -aG docker ubuntu
+    echo "Docker installed successfully"
+  EOT
 }
 
-resource "null_resource" "copy_docker_compose" {
-  depends_on = [module.web_vm]
-
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file(var.sec_file)
-    host        = module.web_vm.public_ip
+  # Часть 2: Создание Dockerfile
+  part {
+    content_type = "text/x-shellscript"
+    content = <<-EOF
+      #!/bin/bash
+      cat << 'EOL' > /home/ubuntu/Dockerfile
+      ${file("Dockerfile")}
+      EOL
+      chown ubuntu:ubuntu /home/ubuntu/Dockerfile
+    EOF
   }
 
-  provisioner "file" {
-    source      = "${path.module}/docker-compose.yml"
-    destination = "/home/ubuntu/docker-compose.yml"
+  # Часть 3: Создание docker-compose.yml
+  part {
+    content_type = "text/x-shellscript"
+    content = <<-EOF
+      #!/bin/bash
+      cat << 'EOL' > /home/ubuntu/docker-compose.yml
+      ${file("${path.module}/docker-compose.yml")}
+      EOL
+      chown ubuntu:ubuntu /home/ubuntu/docker-compose.yml
+    EOF
+  }
+
+}
+
+module "web_vm" {
+  depends_on    = [module.moex_cluster, null_resource.generate_env]
+  source         = "git::https://github.com/udjin10/yandex_compute_instance.git?ref=09144db7f136b793064f1ac593fe2ac6921932f0"
+  env_name       = "moex-app"
+  network_id     = module.vpc.network_id
+  subnet_zones   = [var.default_zone]
+  subnet_ids     = [module.vpc.subnet_id]
+  instance_name  = "wm"
+  instance_count = 1
+  image_family   = var.image_family
+  public_ip      = true
+  labels = { 
+    owner   = "alexz",
+  }
+
+  security_group_ids = [yandex_vpc_security_group.moex_app.id]
+
+  metadata = {
+    user-data          = data.template_cloudinit_config.app_config.rendered
+    serial-port-enable = 1
   }
 }
 
 resource "null_resource" "run_docker_compose" {
-  depends_on = [module.web_vm,resource.null_resource.copy_docker_compose,resource.null_resource.copy_mysql_dockerfile]
+  depends_on = [module.web_vm,null_resource.copy_mysql_env]
 
   connection {
     type        = "ssh"
     user        = "ubuntu"
     private_key = file(var.sec_file)
-    host        = module.web_vm.public_ip
+    host        = module.web_vm.external_ip_address[0]
   }
 
   # Run docker-compose
