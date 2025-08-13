@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Данные с MOEX</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            padding: 8px;
+            width: 200px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .data-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 4px;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Данные с Московской биржи (MOEX)</h1>
+        
+        <form method="POST">
+            <label for="ticker">Введите тикер:</label>
+            <input type="text" id="ticker" name="ticker" value="{{ ticker }}" required>
+            <button type="submit">Получить данные</button>
+        </form>
+        
+        {% if data %}
+        <div class="data-container">
+            <h2>Тикер: {{ data.ticker }}</h2>
+            <p><strong>Время:</strong> {{ data.now }}</p>
+            <p><strong>Последняя цена:</strong> {{ data.last_price }} RUB</p>
+            <p><strong>Изменение:</strong> {{ data.change }}</p>
+        </div>
+        {% else %}
+        <div class="error">Не удалось получить данные для тикера "{{ ticker }}"</div>
+        {% endif %}
+    </div>
+</body>
+</html>
