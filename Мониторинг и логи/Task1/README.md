@@ -119,5 +119,10 @@ Pull – Zabbix-сервер сам опрашивает агентов.</br>
 Push – агенты могут отправлять данные через Zabbix Trapper или Active Checks.</br>
 VictoriaMetrics – хоть и совместима с Prometheus (Pull), но также поддерживает Push через /api/v1/import/prometheus и другие API.
 
+# Решение Задание 7
+
+![Task7](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_7.png)
+
+
 
 
