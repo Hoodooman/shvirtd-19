@@ -123,6 +123,25 @@ VictoriaMetrics – хоть и совместима с Prometheus (Pull), но 
 
 ![Task7](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_7.png)
 
+# Решение Задание 8
+
+![Task8](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_8.png)
+
+# Решение Задание 9
+
+![Task9](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_9.png)
+
+# Решение Задание *
+
+![listing](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_app_listing.png)
+
+![0](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_app_0.png)
+
+![1](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%BE%D0%BD%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%BD%D0%B3%20%D0%B8%20%D0%BB%D0%BE%D0%B3%D0%B8/Task1/data/Task_app_1.png)
+
+
+
+
 
 
 
