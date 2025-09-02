@@ -88,3 +88,5 @@ NATS - для ultra-low latency систем, где задержка крити
 # *Решение Задание 3
 
 [Ссылка на код](https://github.com/Hoodooman/shvirtd-19/tree/main/%D0%9C%D0%B8%D0%BA%D1%80%D0%BE%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81%D1%8B/Task2/data)
+
+![Task2](https://github.com/Hoodooman/shvirtd-19/blob/main/%D0%9C%D0%B8%D0%BA%D1%80%D0%BE%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81%D1%8B/Task2/Task2.png)
