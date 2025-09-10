@@ -108,4 +108,187 @@ Grafana:
 
 Оба инструмента open-source, большое сообщество, широкое распространение и множество готовых exporters и дашбордов.
 
+# Задание *
 
+```yaml
+version: '3.8'
+
+volumes:
+  data:
+  prometheus-data:
+  grafana_data:
+  elasticsearch_data:
+  vector_data:
+
+networks:
+  app-network:
+    driver: bridge
+  monitoring-network:
+    driver: bridge
+
+services:
+  # Существующие сервисы
+  storage:
+    image: minio/minio:latest
+    command: server /data
+    restart: always
+    expose: 
+      - 9000
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    volumes:
+      - data:/data
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "log_collector=vector"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s      
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      storage:
+        condition: service_healthy
+    restart: on-failure
+    entrypoint: > 
+      /bin/sh -c "      
+      /usr/bin/mc alias set storage http://storage:9000 $${STORAGE_ACCESS_KEY:-minioadmin} $${STORAGE_SECRET_KEY:-minioadmin} &&
+      /usr/bin/mc mb --ignore-existing storage/images &&
+      /usr/bin/mc anonymous set download storage/images &&
+      exit 0;
+      "
+    networks:
+      - app-network
+
+  uploader:
+    build: ./uploader
+    depends_on:
+      - storage
+      - createbuckets
+    expose: 
+      - 3000
+    environment:
+      PORT: 3000
+      S3_HOST: storage
+      S3_PORT: 9000
+      S3_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
+      S3_ACCESS_SECRET: ${STORAGE_SECRET_KEY:-minioadmin}
+      S3_BUCKET: images
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "log_collector=vector"
+
+  security:
+    build: ./security
+    expose: 
+      - 3000
+    environment:
+      PORT: 3000
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "log_collector=vector"
+
+  gateway:
+    image: nginx:alpine
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:8080"      
+    depends_on:
+      - storage
+      - uploader
+      - security
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "log_collector=vector"
+
+  # Система сбора логов
+  elasticsearch:
+    image: elasticsearch:8.7.0
+    container_name: es_hot
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - monitoring-network
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://elasticsearch:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  kibana:
+    image: kibana:8.7.0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=admin
+      - ELASTICSEARCH_PASSWORD=qwerty123456
+    networks:
+      - monitoring-network
+    ports:
+      - "5601:5601"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  vector:
+    image: timberio/vector:0.34.0-alpine
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - vector_data:/var/lib/vector
+    networks:
+      - app-network
+      - monitoring-network
+    ports:
+      - "8686:8686" # Vector internal metrics
+    environment:
+      - VECTOR_CONFIG=/etc/vector/vector.toml
+    restart: unless-stopped
