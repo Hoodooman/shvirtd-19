@@ -220,3 +220,172 @@ spec:
  - Для StatefulSets или прямого обнаружения подов: Используйте Headless Service (clusterIP: None).
 
  - Для продвинутой маршрутизации HTTP/HTTPS трафика: Используйте ресурс Ingress (который работает поверх Services) или новый Gateway API.
+
+
+# Что такое Deployment?
+Deployment — это объект Kubernetes, который предоставляет декларативный способ управления набором идентичных Pods (через ReplicaSet) для без состояния (stateless) приложения. Вы описываете желаемое состояние (например, «запусти три реплики моего приложения с версией образа 1.16.1»), и Контроллер Deployment автоматически и постепенно изменяет текущее состояние, чтобы соответствовать желаемому.
+
+# Ключевые сценарии использования (Use Cases)
+- Развертывание ReplicaSet: Запуск новой версии приложения.
+
+- Обновление Pods: Объявите новое состояние (например, обновите образ контейнера), и Deployment выполнит контролируемое rolling-обновление.
+
+- Откат к предыдущей ревизии: Вернитесь к более ранней, стабильной версии, если обновление не удалось.
+
+- Масштабирование Deployment: Увеличьте или уменьшите количество реплик для обработки большей или меньшей нагрузки.
+
+- Приостановка и возобновление обновлений: Внесите несколько изменений в конфигурацию Deployment, прежде чем запускать новое развертывание.
+
+# Создание Deployment
+Deployment определяется с помощью YAML-манифеста.
+
+Пример: nginx-deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3 # Желаемое количество Pods
+  selector: # Как Deployment находит Pods для управления
+    matchLabels:
+      app: nginx
+  template: # Шаблон Pod
+    metadata:
+      labels:
+        app: nginx # Должен совпадать с селектором выше
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2 # Образ контейнера
+        ports:
+        - containerPort: 80
+```
+Применение Deployment:
+
+```bash
+kubectl apply -f nginx-deployment.yaml
+```
+Проверка статуса:
+
+```bash
+kubectl get deployments
+# NAME READY UP-TO-DATE AVAILABLE AGE
+# nginx-deployment 3/3 3 3 18s
+
+kubectl get rs # Посмотреть созданный ReplicaSet
+kubectl get pods --show-labels # Посмотреть созданные Pods
+```
+
+# Обновление Deployment
+Развертывание (rollout) запускается только при изменении шаблона Pod (.spec.template), например, при обновлении образа контейнера.
+
+Обновление образа:
+
+```bash
+kubectl set image deployment/nginx-deployment nginx=nginx:1.16.1
+# или
+kubectl edit deployment/nginx-deployment # Редактировать манифест вручную
+```
+Что происходит во время обновления:
+Контроллер Deployment создает новый ReplicaSet и начинает rolling-обновление:
+
+1. Увеличивает масштаб нового ReplicaSet (например, +1 pod).
+
+2. Уменьшает масштаб старого ReplicaSet (например, -1 pod).
+
+3. Повторяет этот процесс, пока все Pods в новом ReplicaSet не будут работать, а все Pods в старом ReplicaSet не будут завершены и удалены (terminated)*.<br>
+*Kubernetes чаще используется термин «завершены» (terminated) или «удалены» (deleted).
+
+Это потому, что процесс остановки Pod происходит в несколько этапов и не всегда мгновенный:
+
+1. Инициация завершения: Контроллер отправляет сигнал SIGTERM процессам внутри Pod'a. Это уведомление, что пора начать корректно завершать работу (завершить открытые соединения, сохранить состояние и т.д.).
+
+2. Ожидание: Kubernetes ждет определенное время (terminationGracePeriodSeconds, по умолчанию 30 секунд), чтобы приложение могло gracefully завершиться.
+
+3. Принудительное завершение: Если по истечении этого времени Pod еще не остановился, отправляется сигнал SIGKILL, и Pod принудительно удаляется с узла.
+
+Таким образом, Pod'ы из старого ReplicaSet не просто "уничтожаются", а проходят процесс управляемого завершения, чтобы минимизировать влияние на пользователей.
+
+Эта стратегия гарантирует доступность приложения, соблюдая значения по умолчанию:
+
+- maxUnavailable: 25% (Гарантирует, что 75% желаемых Pods всегда доступны).
+
+- maxSurge: 25% (Позволяет общему количеству Pods достигать до 125% от желаемого количества во время обновления).
+
+Мониторинг процесса обновления:
+
+```bash
+kubectl rollout status deployment/nginx-deployment
+kubectl describe deployments
+```
+
+# Откат Deployment
+Если развертывание fails (например, из-за сломанного образа), вы можете легко откатиться.
+
+1. Проверить историю развертываний:
+
+```bash
+kubectl rollout history deployment/nginx-deployment
+# deployments "nginx-deployment"
+# REVISION CHANGE-CAUSE
+# 1 <none>
+# 2 kubectl set image...nginx:1.16.1
+# 3 kubectl set image...nginx:1.161 # Сломанная версия
+```
+2. Откат к предыдущей версии:
+
+```bash
+kubectl rollout undo deployment/nginx-deployment # Откатывается к предыдущей ревизии
+# или
+kubectl rollout undo deployment/nginx-deployment --to-revision=2 # Откат к конкретной ревизии
+```
+3. Проверить откат:
+
+```bash
+kubectl get deployment nginx-deployment
+kubectl describe deployment nginx-deployment
+```
+
+# Полезные операции
+Масштабирование Deployment:
+
+```bash
+kubectl scale deployment/nginx-deployment --replicas=5
+```
+Приостановка и возобновление обновления:
+Это позволяет вам вносить несколько изменений, не запуская обновление после каждого промежуточного шага.
+
+```bash
+kubectl rollout pause deployment/nginx-deployment # Приостановить
+kubectl set image deployment/nginx-deployment nginx=nginx:1.17.0 # Изменение 1
+kubectl set resources deployment/nginx-deployment -c=nginx --limits=cpu=200m,memory=512Mi # Изменение 2
+kubectl rollout resume deployment/nginx-deployment # Возобновить - начнется единое обновление
+```
+Установка дедлайна для обновления:
+Если обновление зависло, вы можете указать Kubernetes пометить его как не удавшееся по истечении указанного времени.
+
+```bash
+kubectl patch deployment/nginx-deployment -p '{"spec":{"progressDeadlineSeconds":600}}' # 10 минут
+```
+Политика очистки (История ревизий):
+Контролируйте, сколько старых ReplicaSet сохраняется для отката (по умолчанию 10).
+
+```yaml
+spec:
+  revisionHistoryLimit: 5
+```
+
+# Важные заметки и лучшие практики
+- Неизменяемый селектор: В apps/v1 селектор Deployment (.spec.selector) неизменяем после создания. Планируйте свои метки тщательно.
+
+- Хэш шаблона Pod (Pod Template Hash): Контроллер добавляет метку pod-template-hash к каждому Pod и ReplicaSet. Не изменяйте эту метку.
+
+- Не управляйте управляемыми ReplicaSet: Никогда не управляйте напрямую ReplicaSet, созданными Deployment. Позвольте контроллеру делать это.
+
+- Непересекающиеся селекторы: Убедитесь, что у Deployments и других контроллеров (как StatefulSets) нет пересекающихся селекторов, чтобы избежать конфликтов.
+
+- Завершающиеся Pods (Terminating): Pods, которые завершают работу, не считаются «доступными» (available), но все еще потребляют ресурсы, пока полностью не终止 (terminate).
