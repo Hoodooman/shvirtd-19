@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      # Настройка Init Container
+      initContainers:
+      - name: wait-for-nginx-service
+        image: busybox:1.28
+        command: ['sh', '-c', 'until nslookup nginx-service.shkube-hw.svc.cluster.local; do echo waiting for nginx service; sleep 2; done']
+      # Основной контейнер с nginx
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
