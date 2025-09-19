@@ -36,3 +36,20 @@ kubectl apply -f service.yml
 6. Создаем под [multitool-pod.yml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task1/multitool-pod.yml) для тестирования контейнеров нашего приложения
 
 ![Task1_6](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task1/data/Task1_6.png)
+
+# Решение Задание 2
+
+1. Разворачиваем nginx [nginx-deployment.yml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task2/nginx-deployment.yml)
+
+![Task2_1](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task2/data/Task2_1.png)
+
+2. Видим что nginx не запускается
+
+![Task2_2](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task2/data/Task2_2.png)
+
+3. Создаем сервис [nginx-service.yml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task2/nginx-service.yml), видим запуск nginx, под в статусе Running
+```bash
+kubectl apply -f nginx-service.yml
+```
+![Task2_3](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task3/Task2/data/Task2_3.png)
+
