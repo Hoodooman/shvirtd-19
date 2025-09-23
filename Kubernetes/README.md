@@ -6,6 +6,7 @@
 - [Deployment](#deployment)
 - [Init Containers](#init-containers)
 - [Ingress](#ingress)
+- [Volumes](#volumes)
 - [Secrets](#secrets)
 
 
@@ -612,6 +613,158 @@ ImplementationSpecific: Интерпретация зависит от реал�
 
 ## Если кратко:
 Используйте Ingress, когда вам нужно предоставить доступ к нескольким HTTP-сервисам из интернета под разными доменными именами или путями, с завершением TLS и балансировкой нагрузки уровня 7. Не забудьте сначала установить и настроить Ingress Controller, такой как Nginx Ingress или Traefik.
+
+# Volumes
+## Что такое тома Kubernetes?
+Тома предоставляют контейнерам в Pod'ах доступ к данным и возможность обмена файлами через файловую систему. Они решают две основные проблемы:
+
+Сохранность данных: Файлы в контейнерах эфемерны - при остановке контейнера все данные теряются. Тома сохраняют данные.
+
+Общее хранилище: Позволяют контейнерам в одном Pod'е совместно использовать файлы.
+
+# Основные типы томов
+## Актуальные и рекомендуемые:
+- configMap - для конфигурационных данных
+
+- emptyDir - временное хранилище (исчезает с удалением Pod'а)
+
+- hostPath - монтирование файлов с узла (используйте осторожно!)
+
+- nfs - сетевая файловая система
+
+- persistentVolumeClaim (PVC) - постоянное хранилище
+
+- secret - для секретных данных
+
+- local - локальные диски как PersistentVolume
+
+# Устаревшие/удаленные (переход на CSI драйверы):
+- awsElasticBlockStore, azureDisk, azureFile, cephfs, cinder, gcePersistentDisk, gitRepo, glusterfs, rbd, vsphereVolume
+
+# Конфигурация томов
+## Пример emptyDir:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: registry.k8s.io/test-webserver
+    name: test-container
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir:
+      sizeLimit: 500Mi
+      medium: Memory  # Хранить в RAM
+```
+## Пример configMap:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-pod
+spec:
+  containers:
+    - name: test
+      image: busybox:1.28
+      volumeMounts:
+        - name: config-vol
+          mountPath: /etc/config
+  volumes:
+    - name: config-vol
+      configMap:
+        name: log-config
+        items:
+          - key: log_level
+            path: log_level.conf
+```
+# Ключевые особенности
+## subPath - монтирование поддиректорий:
+```yaml
+volumeMounts:
+- mountPath: /var/lib/mysql
+  name: site-data
+  subPath: mysql  # Только поддиректория mysql
+```
+# Распространение монтирования (Mount Propagation):
+- None - по умолчанию, без распространения
+
+- HostToContainer - монтирования с узла видны в контейнере
+
+- Bidirectional - двустороннее распространение (требует привилегий)
+
+# Только для чтения:
+```yaml
+volumeMounts:
+- mountPath: /config
+  name: config-volume
+  readOnly: true  # Только чтение
+```
+# Рекомендации по использованию
+## Безопасность:
+- 🔒 Избегайте hostPath - потенциальная угроза безопасности
+
+- 🔒 Используйте readOnly для configMap и secret
+
+- 🔒 Bidirectional mount propagation только для привилегированных контейнеров
+
+# Сохранность данных:
+- 💾 Для временных данных: emptyDir
+
+- 💾 Для постоянных данных: PersistentVolumeClaim
+
+- 💾 Для конфигурации: configMap и secret
+
+# Современные подходы:
+- 🚀 Используйте CSI драйверы вместо устаревших in-tree плагинов
+
+- 🚀 PersistentVolumeClaim для production-окружения
+
+- 🚀 Local volumes для производительности (но учитывайте доступность)
+
+# Миграция на CSI
+Kubernetes переходит на Container Storage Interface (CSI) драйверы:
+
+- Больше возможностей для storage-провайдеров
+
+- Лучшая поддержка новых функций
+
+- Независимость от релизов Kubernetes
+
+# Важные предупреждения
+## hostPath риски:
+```yaml
+# НЕ РЕКОМЕНДУЕТСЯ для production!
+volumes:
+- name: dangerous-volume
+  hostPath:
+    path: /etc/kubernetes  # Опасный путь!
+    type: Directory
+```
+## emptyDir ограничения:
+- Данные теряются при удалении Pod'а
+
+- Ограничивайте размер через sizeLimit
+
+- Для памяти используйте medium: Memory
+
+# Лучшие практики
+1. Конфигурация: configMap + readOnly
+
+2. Временные данные: emptyDir с ограничениями
+
+3. Постоянные данные: PVC + CSI драйвер
+
+4. Секреты: secret volumes (никогда не в образы!)
+
+5. Безопасность: минимальные привилегии, readOnly когда возможно
+
+Тома Kubernetes предоставляют гибкую систему хранения данных - от временных файлов до высокодоступных распределенных хранилищ. Выбирайте тип тома в зависимости от требований к сохранности, безопасности и производительности.
+
 
 # Secrets
 # Что такое Secrets?
