@@ -600,3 +600,346 @@ ImplementationSpecific: Интерпретация зависит от реал�
 
 ## Если кратко:
 Используйте Ingress, когда вам нужно предоставить доступ к нескольким HTTP-сервисам из интернета под разными доменными именами или путями, с завершением TLS и балансировкой нагрузки уровня 7. Не забудьте сначала установить и настроить Ingress Controller, такой как Nginx Ingress или Traefik.
+
+# Kubernetes Secrets (Секреты) - Полное руководство на русском
+# Что такое Secrets?
+Secrets (Секреты) - это объекты Kubernetes, которые содержат конфиденциальные данные:
+
+- Пароли, токены, ключи
+
+- Учетные данные для аутентификации
+
+- TLS-сертификаты
+
+Преимущества использования Secrets:
+
+- Не хранить чувствительные данные в коде приложения
+
+- Отдельное управление конфиденциальными данными
+
+- Меньший риск exposure при работе с Pods
+
+# ⚠️ Важные предупреждения безопасности
+По умолчанию Secrets НЕ зашифрованы в etcd!
+
+- Любой с доступом к API может читать/изменять Secrets
+
+- Любой, кто может создавать Pods в namespace, может читать Secrets в этом namespace
+
+Меры безопасности:
+
+1. Включите Encryption at Rest для Secrets
+
+2. Настройте RBAC с минимальными привилегиями
+
+3. Ограничьте доступ Secrets конкретным контейнерам
+
+4. Рассмотрите внешние хранилища секретов
+
+# Типы Secrets
+# 1. Opaque (Произвольные данные)
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+type: Opaque
+data:
+  username: YWRtaW4=  # admin в base64
+  password: c2VjcmV0MTIz  # secret123 в base64
+```
+# 2. TLS Secrets
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-secret
+type: kubernetes.io/tls
+data:
+  tls.crt: BASE64_ENCODED_CERT
+  tls.key: BASE64_ENCODED_KEY
+```
+# 3. Docker Registry Secrets
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-secret
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: BASE64_ENCODED_DOCKER_CONFIG
+```
+# Создание Secrets
+### Через kubectl
+```bash
+# Из literal значений
+kubectl create secret generic my-secret \
+  --from-literal=username=admin \
+  --from-literal=password=secret123
+
+# Из файлов
+kubectl create secret generic my-secret \
+  --from-file=./username.txt \
+  --from-file=./password.txt
+
+# TLS Secret
+kubectl create secret tls tls-secret \
+  --cert=path/to/cert.pem \
+  --key=path/to/key.pem
+
+# Docker Registry Secret
+kubectl create secret docker-registry docker-secret \
+  --docker-username=user \
+  --docker-password=pass \
+  --docker-server=registry.example.com
+```
+# Через YAML манифест
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-secret
+type: Opaque
+stringData:  # Автоматически кодируется в base64
+  username: admin
+  password: secret123
+data:
+  # или предварительно закодированные значения
+  api-key: c3VwZXItc2VjcmV0LWtleQ==
+```
+# Использование Secrets в Pods
+### 1. Как переменные окружения
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-env-secrets
+spec:
+  containers:
+  - name: myapp
+    image: nginx
+    env:
+    - name: DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: username
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: my-secret
+          key: password
+```
+### 2. Как volumes
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-volume-secrets
+spec:
+  containers:
+  - name: myapp
+    image: nginx
+    volumeMounts:
+    - name: secret-volume
+      mountPath: "/etc/secrets"
+      readOnly: true
+  volumes:
+  - name: secret-volume
+    secret:
+      secretName: my-secret
+      # Опционально: указать конкретные ключи
+      items:
+      - key: username
+        path: db-username
+      - key: password
+        path: db-password
+```
+### 3. Для pull образов из private registry
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-private-image
+spec:
+  containers:
+  - name: private-app
+    image: private.registry.com/app:latest
+  imagePullSecrets:
+  - name: docker-secret
+```
+# Практические примеры
+### Пример 1: База данных PostgreSQL
+```yaml
+# Secret для PostgreSQL
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+stringData:
+  postgres-user: admin
+  postgres-password: SuperSecret123!
+  postgres-db: myapp
+
+---
+# Deployment использующий Secret
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: postgres-db
+```
+### Пример 2: API с TLS
+```yaml
+# TLS Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: api-tls-secret
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ...
+
+---
+# Ingress с TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+spec:
+  tls:
+  - hosts:
+    - api.example.com
+    secretName: api-tls-secret
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-service
+            port:
+              number: 80
+```
+# Лучшие практики
+### 1. Безопасность
+```yaml
+# Сделать Secret immutable (неизменяемым)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: immutable-secret
+immutable: true
+data:
+  token: c3VwZXItc2VjcmV0LXRva2Vu
+```
+### 2. RBAC ограничения
+```yaml
+# Ограничить доступ к Secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: secret-reader
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["my-secret"]
+  verbs: ["get", "watch"]
+```
+### 3. Использование external-secrets
+```yaml
+# Интеграция с внешними хранилищами (AWS Secrets Manager, HashiCorp Vault)
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: database-secret
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secret-store
+    kind: SecretStore
+  target:
+    name: database-credentials
+  data:
+  - secretKey: username
+    remoteRef:
+      key: /prod/database
+      property: username
+  - secretKey: password
+    remoteRef:
+      key: /prod/database
+      property: password
+```
+# Управление Secrets
+### Просмотр Secrets
+```bash
+# Список всех Secrets
+kubectl get secrets
+
+# Детальная информация о Secret
+kubectl describe secret my-secret
+
+# Получить значения в читаемом виде
+kubectl get secret my-secret -o jsonpath='{.data}' | jq '. | map_values(@base64d)'
+```
+# Обновление Secrets
+```bash
+# Обновление через kubectl
+kubectl create secret generic my-secret \
+  --from-literal=username=newadmin \
+  --from-literal=password=newpass123 \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Ротация Secrets
+kubectl patch secret my-secret -p '{"metadata":{"labels":{"updated":"'$(date +%s)'"}}}'
+```
+# Ограничения
+-  Размер: Максимум 1 MiB на Secret
+
+-  Кодировка: Данные хранятся в base64 (не шифрование!)
+
+-  Доступ: Только для Pods в том же namespace
+
+-  Обновления: Автоматически обновляются в volumes (кроме subPath)
+
+# Альтернативы Secrets
+1. ServiceAccount tokens - для аутентификации внутри кластера
+
+2. External Secret providers (HashiCorp Vault, AWS Secrets Manager)
+
+3. Certificates - через CertificateSigningRequests
+
+4. Hardware security modules - через device plugins
