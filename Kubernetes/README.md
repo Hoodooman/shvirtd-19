@@ -8,6 +8,7 @@
 - [Ingress](#ingress)
 - [Volumes](#volumes)
 - [Secrets](#secrets)
+- [ConfigMaps](#configmaps)
 
 
 
@@ -1108,3 +1109,213 @@ kubectl patch secret my-secret -p '{"metadata":{"labels":{"updated":"'$(date +%s
 3. Certificates - через CertificateSigningRequests
 
 4. Hardware security modules - через device plugins
+
+
+# ConfigMaps
+## Что такое ConfigMap?
+ConfigMap - это объект API Kubernetes, используемый для хранения неконфиденциальных данных в виде пар "ключ-значение". Pod'ы могут использовать ConfigMaps как переменные окружения, аргументы командной строки или файлы конфигурации в томах.
+
+ConfigMap позволяет отделить конфигурацию, зависящую от окружения, от образов контейнеров, что делает приложения легко переносимыми.
+
+Важно: ConfigMap не обеспечивает конфиденциальность или шифрование. Для хранения секретных данных используйте Secret или дополнительные инструменты.
+
+## Мотивация использования
+Используйте ConfigMap для хранения конфигурационных данных отдельно от кода приложения.
+
+Например, представьте, что вы разрабатываете приложение, которое может работать на вашем компьютере (для разработки) и в облаке (для обработки реального трафика). Ваш код обращается к переменной окружения DATABASE_HOST. Локально вы устанавливаете значение localhost, а в облаке - ссылку на Kubernetes Service, предоставляющий доступ к базе данных.
+
+Примечание: ConfigMap не предназначен для хранения больших данных. Объем данных не может превышать 1 МиБ. Для больших настроек используйте тома или внешние сервисы.
+
+## Объект ConfigMap
+ConfigMap - это API-объект для хранения конфигурации. В отличие от других объектов Kubernetes, ConfigMap имеет поля data и binaryData вместо spec.
+
+data - для UTF-8 строк
+
+binaryData - для бинарных данных в base64
+
+Имя ConfigMap должно быть действительным DNS-поддоменом.
+
+## ConfigMaps и Pod'ы
+Pod может ссылаться на ConfigMap, и они должны находиться в одном namespace.
+
+## Пример ConfigMap:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-demo
+data:
+  # Простые ключи-значения
+  player_initial_lives: "3"
+  ui_properties_file_name: "user-interface.properties"
+
+  # Файлоподобные ключи
+  game.properties: |
+    enemy.types=aliens,monsters
+    player.maximum-lives=5    
+  user-interface.properties: |
+    color.good=purple
+    color.bad=yellow
+    allow.textmode=true
+```
+# Способы использования ConfigMap в Pod:
+- Команды и аргументы контейнера
+
+- Переменные окружения для контейнера
+
+- Файлы в read-only томе
+
+- Прямое чтение через Kubernetes API
+
+## Пример Pod, использующего ConfigMap:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-demo-pod
+spec:
+  containers:
+    - name: demo
+      image: alpine
+      command: ["sleep", "3600"]
+      env:
+        - name: PLAYER_INITIAL_LIVES
+          valueFrom:
+            configMapKeyRef:
+              name: game-demo
+              key: player_initial_lives
+        - name: UI_PROPERTIES_FILE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: game-demo
+              key: ui_properties_file_name
+      volumeMounts:
+      - name: config
+        mountPath: "/config"
+        readOnly: true
+  volumes:
+  - name: config
+    configMap:
+      name: game-demo
+      items:
+      - key: "game.properties"
+        path: "game.properties"
+      - key: "user-interface.properties"
+        path: "user-interface.properties"
+```
+# Использование ConfigMaps
+## Использование ConfigMaps как файлов в Pod
+- Создайте или используйте существующий ConfigMap
+
+- Добавьте том в спецификацию Pod
+
+- Добавьте volumeMounts в контейнер
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+  - name: mypod
+    image: redis
+    volumeMounts:
+    - name: foo
+      mountPath: "/etc/foo"
+      readOnly: true
+  volumes:
+  - name: foo
+    configMap:
+      name: myconfigmap
+```
+## Автоматическое обновление ConfigMaps
+ConfigMaps, смонтированные как тома, обновляются автоматически. Переменные окружения требуют перезапуска Pod.
+
+Важно: ConfigMaps, используемые как subPath томы, не получают обновления.
+
+## Использование ConfigMaps как переменных окружения
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-configmap
+spec:
+  containers:
+    - name: app
+      command: ["/bin/sh", "-c", "printenv"]
+      image: busybox:latest
+      envFrom:
+        - configMapRef:
+            name: myconfigmap
+```
+##### Или выборочно:
+
+```yaml
+env:
+- name: CONFIGMAP_USERNAME
+  valueFrom:
+    configMapKeyRef:
+      name: myconfigmap
+      key: username
+```
+# Неизменяемые ConfigMaps
+Начиная с Kubernetes v1.21 можно создавать неизменяемые ConfigMaps:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immutable-config
+data:
+  key: value
+immutable: true
+```
+#### Преимущества:
+
+- Защита от случайных изменений
+
+- Улучшение производительности кластера
+
+# Практические рекомендации
+## 1. Создание ConfigMap
+```bash
+# Из файла
+kubectl create configmap app-config --from-file=config.properties
+
+# Из директории
+kubectl create configmap app-config --from-file=config-dir/
+
+# Из литералов
+kubectl create configmap app-config --from-literal=key1=value1 --from-literal=key2=value2
+```
+## 2. Лучшие практики
+- Именование: Используйте описательные имена
+
+- Организация: Группируйте связанные настройки
+
+- Безопасность: Не храните секреты в ConfigMaps
+
+- Размер: Для больших конфигураций используйте внешние системы
+
+## 3. Шаблоны использования
+```yaml
+# Конфигурация для разных окружений
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-dev
+data:
+  database.url: "localhost:5432"
+  log.level: "DEBUG"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config-prod
+data:
+  database.url: "postgres-service:5432"
+  log.level: "INFO"
+```
+ConfigMaps - важный инструмент для создания переносимых и поддерживаемых приложений в Kubernetes, позволяющий эффективно управлять конфигурацией.
