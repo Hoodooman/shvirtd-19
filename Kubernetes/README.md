@@ -10,6 +10,7 @@
 - [Secrets](#secrets)
 - [ConfigMaps](#configmaps)
 - [RBAC](#rbac)
+- [Certificates](#certificates)
 
 
 
@@ -1484,3 +1485,170 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 Система RBAC предоставляет детализированный контроль доступа с соблюдением принципа наименьших привилегий и механизмами предотвращения эскалации прав.
+
+# Certificates
+## Сертификаты и Запросы на Подпись Сертификатов в Kubernetes
+
+API для работы с сертификатами в Kubernetes предоставляет программный интерфейс для автоматизации выпуска X.509 сертификатов и управления центрами сертификации (CA).
+
+## CertificateSigningRequest (CSR) - Стабильная версия
+Назначение: Программный запрос X.509 сертификатов от центра сертификации
+
+Ключевые поля:
+
+- spec.request - PEM-кодированный PKCS#10 запрос
+
+- spec.signerName - обязательное поле, идентифицирует подписанта
+
+- spec.expirationSeconds - опциональное поле для срока действия (минимум 600 секунд)
+
+Процесс работы:
+
+1. Создание CSR → 2. Утверждение/Отклонение → 3. Подписание → 4. Сертификат в status.certificate
+
+## Встроенные подписанты
+- kubernetes.io/kube-apiserver-client
+
+  - Клиентские сертификаты для API-сервера
+
+  - Не утверждается автоматически
+
+- kubernetes.io/kube-apiserver-client-kubelet
+
+  - Клиентские сертификаты для узлов
+
+  - Может утверждаться автоматически
+
+- kubernetes.io/kubelet-serving
+
+  - Серверные сертификаты для kubelet
+
+  - Не утверждается автоматически
+
+- kubernetes.io/legacy-unknown
+
+  - Без гарантий доверия (устарел)
+
+# RBAC разрешения
+Для создания CSR:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: csr-creator
+rules:
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests"]
+  verbs: ["create", "get", "list", "watch"]
+```
+Для утверждения CSR:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: csr-approver
+rules:
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests/approval"]
+  verbs: ["update"]
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["signers"]
+  verbs: ["approve"]
+```
+# Управление CSR
+## Утверждение через kubectl
+```bash
+# Утвердить CSR
+kubectl certificate approve <имя-csr>
+
+# Отклонить CSR
+kubectl certificate deny <имя-csr>
+```
+
+# Автоматическая очистка
+- Утвержденные/отклоненные/неудачные CSR: удаляются через 1 час
+
+- Ожидающие CSR: удаляются через 24 часа
+
+- Все CSR: удаляются после истечения срока действия сертификата
+
+# PodCertificateRequest - Альфа (v1.34)
+##### Упрощенный CSR для Pod'ов:
+
+- Автоматическое управление через projected volumes
+
+- Нет фазы утверждения - подписант сразу выпускает/отклоняет
+
+- Автоматическое обновление сертификатов
+
+Ключевые поля: signerName, podUID, serviceAccountName, nodeName, maxExpirationSeconds
+
+# ClusterTrustBundle - Бета (v1.33)
+Распределение корневых сертификатов доверия:
+
+## Два режима работы:
+- Привязанные к подписанту: Требуют права attest
+
+- Непривязанные к подписанту: Стандартные права RBAC
+
+Использование: Внедряются в pod'ы через projected volumes
+
+# Практическое использование
+## Пример CSR
+```yaml
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: my-csr
+spec:
+  signerName: kubernetes.io/kube-apiserver-client
+  expirationSeconds: 86400  # 24 часа
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...
+  usages:
+  - client auth
+```
+## Projected Volume для сертификатов
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+spec:
+  containers:
+  - name: my-container
+    volumeMounts:
+    - name: cert-volume
+      mountPath: /etc/certs
+  volumes:
+  - name: cert-volume
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+      - configMap:
+          name: ca-bundle
+          items:
+          - key: ca.crt
+            path: ca.crt
+```
+# Важные особенности
+## Безопасность
+- ClusterTrustBundle доступны для чтения всеми в кластере
+
+- Ограничения на имена подписантов
+
+- Валидация форматов сертификатов
+
+## Совместимость
+- spec.expirationSeconds доступен с Kubernetes v1.22
+
+- PodCertificateRequest требует включения feature gate
+
+- ClusterTrustBundle находится в бета-версии
+
+Этот API обеспечивает надежное автоматическое управление сертификатами в Kubernetes с надлежащими механизмами безопасности и управления жизненным циклом.
