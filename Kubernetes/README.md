@@ -9,6 +9,7 @@
 - [Volumes](#volumes)
 - [Secrets](#secrets)
 - [ConfigMaps](#configmaps)
+- [RBAC](#rbac)
 
 
 
@@ -1319,3 +1320,167 @@ data:
   log.level: "INFO"
 ```
 ConfigMaps - важный инструмент для создания переносимых и поддерживаемых приложений в Kubernetes, позволяющий эффективно управлять конфигурацией.
+
+# RBAC
+# Обзор RBAC
+RBAC - это метод контроля доступа к ресурсам Kubernetes на основе ролей пользователей в организации. Использует API-группу rbac.authorization.k8s.io.
+
+# Основные объекты RBAC
+## 1. Role и ClusterRole
+- Role: Ресурс с пространством имен для разрешений внутри конкретного namespace
+
+- ClusterRole: Кластерный ресурс для разрешений по всему кластеру
+
+Пример Role:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+```
+## 2. RoleBinding и ClusterRoleBinding
+- RoleBinding: Назначает права роли в пределах namespace
+
+- ClusterRoleBinding: Назначает права роли по всему кластеру
+
+Пример RoleBinding:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: jane
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+# Ключевые концепции
+## Ссылки на ресурсы
+- Ресурсы указываются по их API-имени (например, "pods", "secrets")
+
+- Подресурсы используют слеш (например, "pods/log")
+
+- Можно использовать wildcards (*), но с осторожностью
+
+## Субъекты (Subjects)
+Могут быть:
+
+- Пользователи (например, "alice@example.com")
+
+- Группы (например, "frontend-admins")
+
+- ServiceAccounts (например, "system:serviceaccount:default:myapp")
+
+## Агрегированные ClusterRoles
+Позволяют объединять несколько ClusterRoles с помощью селекторов меток:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      rbac.example.com/aggregate-to-monitoring: "true"
+```
+# Роли по умолчанию
+## Пользовательские роли:
+- cluster-admin: Полный доступ к кластеру
+
+- admin: Права администратора в namespace
+
+- edit: Чтение/запись в namespace
+
+- view: Только чтение в namespace
+
+## Системные роли:
+- Различные системные роли с префиксом system: для основных компонентов
+
+# Функции безопасности
+## Предотвращение эскалации привилегий
+- Пользователи могут создавать/обновлять роли только если у них есть соответствующие права
+
+- Ссылки на роли в привязках неизменяемы
+
+## Автоматическая реконсиляция
+- API-сервер автоматически обновляет роли по умолчанию при запуске
+
+- Можно отключить через аннотации
+
+# Утилиты командной строки
+
+```bash
+# Создать Role
+kubectl create role pod-reader --verb=get,list,watch --resource=pods
+
+# Создать ClusterRole
+kubectl create clusterrole secret-reader --verb=get,list,watch --resource=secrets
+
+# Создать RoleBinding
+kubectl create rolebinding my-binding --clusterrole=view --user=jane --namespace=default
+
+# Реконсиляция RBAC объектов
+kubectl auth reconcile -f rbac-rules.yaml
+```
+# Права доступа для ServiceAccounts
+
+## Рекомендуемые практики:
+- Специфичный ServiceAccount для приложения (рекомендуется)
+
+- Сервисный аккаунт по умолчанию в namespace
+
+- Все сервисные аккаунты в namespace
+
+- Все сервисные аккаунты в кластере (наименее безопасно)
+
+# Важные замечания
+- Предупреждение безопасности: Префикс system: зарезервирован для системы Kubernetes
+
+- EndpointSlices: Права записи удалены из ролей по умолчанию в v1.22+ из-за проблем безопасности
+
+- Миграция с ABAC: Можно запускать RBAC и ABAC параллельно во время перехода
+
+# Практические примеры
+
+## Создание роли для чтения ConfigMaps
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: monitoring
+  name: configmap-reader
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+```
+
+## Привязка роли к группе пользователей
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: developers-binding
+subjects:
+- kind: Group
+  name: developers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io
+```
+Система RBAC предоставляет детализированный контроль доступа с соблюдением принципа наименьших привилегий и механизмами предотвращения эскалации прав.
