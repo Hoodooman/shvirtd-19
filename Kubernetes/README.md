@@ -12,6 +12,10 @@
 - [RBAC](#rbac)
 - [Certificates](#certificates)
 
+# Установка Kubernates 
+
+- [Kubeadm](#kubeadm)
+
 
 
 # Нагрузки Kubernetes
@@ -1652,3 +1656,176 @@ spec:
 - ClusterTrustBundle находится в бета-версии
 
 Этот API обеспечивает надежное автоматическое управление сертификатами в Kubernetes с надлежащими механизмами безопасности и управления жизненным циклом.
+
+# Kubeadm
+
+# Создание кластера Kubernetes с помощью kubeadm
+Kubeadm - это инструмент для создания минимального жизнеспособного Kubernetes кластера, соответствующего лучшим практикам. С его помощью можно развернуть кластер, который пройдет тесты на соответствие Kubernetes.
+
+Преимущества kubeadm
+Простой способ попробовать Kubernetes впервые
+
+Автоматизация настройки кластера для тестирования приложений
+
+Использование как строительного блока в других инструментах
+
+Предварительные требования:
+- Одна или несколько машин с ОС Linux (Ubuntu/CentOS)
+
+- 2 ГБ+ оперативной памяти на машину
+
+- 2+ CPU для control-plane узла
+
+- Сетевая связность между всеми машинами
+
+- Совместимая версия kubeadm и Kubernetes
+
+#### Быстрая установка
+1. Подготовка всех узлов
+```bash
+# Обновление пакетов
+sudo apt-get update
+
+# Установка Docker
+sudo apt-get install -y docker.io
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Добавление репозитория Kubernetes
+sudo apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+# Установка kubeadm, kubelet, kubectl
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+2. Инициализация control-plane узла
+```bash
+# На control-plane узле
+sudo kubeadm init --pod-network-cidr=10.244.0.0.0/16
+
+# Настройка kubectl для обычного пользователя
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+3. Установка сетевого плагина (Flannel)
+```bash
+kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+```
+4. Добавление worker узлов
+Используйте команду kubeadm join из вывода инициализации:
+```bash
+# На каждом worker узле
+sudo kubeadm join <control-plane-ip>:6443 --token <token> \
+    --discovery-token-ca-cert-hash sha256:<hash>
+```
+#### Расширенные настройки
+Конфигурационный файл kubeadm
+```yaml
+# kubeadm-config.yaml
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "192.168.1.100"
+  bindPort: 6443
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+kubernetesVersion: "v1.28.0"
+controlPlaneEndpoint: "cluster-endpoint:6443"
+networking:
+  podSubnet: "10.244.0.0/16"
+```
+Инициализация с конфигурацией:
+
+```bash
+kubeadm init --config kubeadm-config.yaml
+```
+Для High Availability
+```bash
+kubeadm init --control-plane-endpoint "LOAD_BALANCER_DNS:6443" \
+    --upload-certs --pod-network-cidr=10.244.0.0/16
+```
+Популярные сетевые плагины
+
+Flannel:
+```bash
+kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+```
+
+Calico:
+```bash
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+```
+
+Weave Net:
+```bash
+kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+```
+
+Проверка кластера
+```bash
+# Проверка статуса узлов
+kubectl get nodes
+
+# Проверка статуса подов
+kubectl get pods --all-namespaces
+
+# Информация о кластере
+kubectl cluster-info
+```
+
+Разрешение запуска подов на control-plane
+По умолчанию control-plane узел имеет taint, запрещающий запуск подов:
+```bash
+# Снять taint для запуска подов
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+```
+
+# Важные замечания
+
+#### Безопасность
+Файл admin.conf предоставляет права суперпользователя - храните его в безопасности
+
+Для обычных пользователей генерируйте отдельные kubeconfig файлы
+
+#### Сеть
+CNI плагин должен быть установлен ДО запуска CoreDNS
+
+Pod сеть не должна пересекаться с сетями хостов
+
+Проверьте поддержку IPv6 если необходимо
+
+#### Резервное копирование
+Регулярно сохраняйте данные etcd (расположены в /var/lib/etcd на control-plane узле)
+
+# Устранение неполадок
+
+#### Проверка сервисов
+```bash
+systemctl status kubelet
+systemctl status docker
+```
+
+#### Просмотр логов
+```bash
+journalctl -u kubelet
+```
+
+#### Сброс кластера
+```bash
+kubeadm reset
+sudo rm -rf /etc/kubernetes/
+sudo rm -rf ~/.kube/
+```
+### Политика версий
+kubeadm должен совпадать или быть на одну версию старше компонентов Kubernetes
+
+kubelet может быть на три версии старше kubeadm
+
+При добавлении узлов версия kubeadm должна совпадать
+
+Этот подход позволяет создать production-подобный Kubernetes кластер, подходящий для разработки, тестирования и обучения.
