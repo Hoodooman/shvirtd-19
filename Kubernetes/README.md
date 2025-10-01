@@ -20,7 +20,7 @@
 
 # Стратегия управления k8s
 
-- [Large Kubernates Cluster](large-kubernates-cluster)
+- [Large Kubernates Cluster](#large-kubernates-cluster)
 
 
 
