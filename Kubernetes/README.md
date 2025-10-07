@@ -1931,3 +1931,247 @@ containers:
 - Прочтите о Масштабировании узлов (Node autoscaling).
 
 - Addon resizer помогает автоматически изменять размер аддонов по мере изменения масштаба вашего кластера.
+
+# Kubespray
+
+## Подробное руководство по установке Kubernetes с помощью Kubespray
+## ✅ Подготовка и настройка окружения
+## Требования к инфраструктуре
+- Минимальная конфигурация: 3 ноды (1 control-plane + 2 worker)
+
+- Control Plane ноды: Минимум 2 ГБ RAM, рекомендуется 8 ГБ RAM и 4-6 CPU
+
+- Worker ноды: Минимум 1 ГБ RAM, рекомендуется 8 ГБ RAM и 4+ CPU
+
+## Настройка операционной системы
+Выполните на каждом узле следующие команды:
+
+```bash
+# Отключение swap
+sudo swapoff -a
+sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+# Настройка параметров ядра
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.ipv4.ip_forward = 1
+EOF
+sudo sysctl --system
+
+# Загрузка модуля bridge netfilter
+sudo modprobe br_netfilter
+echo 'br_netfilter' | sudo tee /etc/modules-load.d/k8s.conf
+```
+### Для RHEL/CentOS дополнительно:
+
+```bash
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+```
+
+## Настройка SSH доступа
+```bash
+# На control-машине
+ssh-keygen -t rsa -b 4096
+ssh-copy-id user@node1
+ssh-copy-id user@node2
+ssh-copy-id user@node3
+```
+
+# 🚀 Установка и настройка Kubespray
+
+## Установка зависимостей
+
+```bash
+git clone https://github.com/kubernetes-sigs/kubespray.git
+cd kubespray
+git checkout v2.28.1  # Актуальная стабильная версия
+
+# Создание виртуального окружения Python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Создание инвентаря
+
+```bash
+cp -rfp inventory/sample inventory/mycluster
+
+# Автоматическое создание инвентаря (замените IP-адреса на свои)
+declare -a IPS=(192.168.1.10 192.168.1.11 192.168.1.12)
+CONFIG_FILE=inventory/mycluster/hosts.yaml python3 contrib/inventory_builder/inventory.py ${IPS[@]}
+```
+
+## Настройка инвентаря
+Отредактируйте inventory/mycluster/hosts.yaml:
+
+```yaml
+all:
+  hosts:
+    node1:
+      ansible_host: 192.168.1.10
+      ip: 192.168.1.10
+      access_ip: 192.168.1.10
+    node2:
+      ansible_host: 192.168.1.11
+      ip: 192.168.1.11
+      access_ip: 192.168.1.11
+    node3:
+      ansible_host: 192.168.1.12
+      ip: 192.168.1.12
+      access_ip: 192.168.1.12
+  children:
+    kube_control_plane:
+      hosts:
+        node1:
+        node2:
+    kube_node:
+      hosts:
+        node1:
+        node2:
+        node3:
+    etcd:
+      hosts:
+        node1:
+        node2:
+        node3:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+    calico_rr:
+      hosts: {}
+```
+
+## Конфигурация кластера
+
+Основные файлы конфигурации в inventory/mycluster/group_vars/:
+
+k8s_cluster/k8s-cluster.yml:
+
+```yaml
+kube_network_plugin: calico    # Сетевой плагин
+kube_version: v1.32.8         # Версия Kubernetes
+cluster_name: mycluster.local # Имя кластера
+```
+all/all.yml:
+
+```yaml
+container_manager: containerd  # Менеджер контейнеров
+```
+
+## 🛠️ Развертывание кластера
+### Запуск установки
+
+```bash
+ansible-playbook -i inventory/mycluster/hosts.yaml \
+  --become --become-user=root \
+  cluster.yml
+```
+Время установки: 15-30 минут в зависимости от размера кластера.
+
+### Проверка установки
+```bash
+# Копирование kubeconfig
+mkdir -p ~/.kube
+sudo cp -i /etc/kubernetes/admin.conf ~/.kube/config
+sudo chown $(id -u):$(id -g) ~/.kube/config
+
+# Проверка нод
+kubectl get nodes
+
+# Проверка системных подов
+kubectl get pods --all-namespaces
+```
+## 🔧 Решение распространенных проблем
+
+### Проверка подключения
+
+```bash
+ansible -i inventory/mycluster/hosts.yaml -m ping all
+```
+## Проблемы с etcd
+- Причина: Проблемы с сетью или фаерволом
+
+- Решение: Проверить открытость портов 2379-2380
+
+## Проблемы с контейнерами
+```bash
+# Проверка статуса containerd
+sudo systemctl status containerd
+
+# Просмотр логов
+sudo journalctl -u containerd -f
+```
+
+## Нехватка ресурсов
+- Симптомы: Поды зависают в состоянии Pending
+
+- Решение: Увеличить RAM/CPU на нодах
+
+## 📝 Пост-установка и обслуживание
+### Тестовое приложение
+
+```bash
+# Развертывание тестового nginx
+kubectl create deployment nginx --image=nginx:latest
+kubectl expose deployment nginx --port=80 --type=NodePort
+
+# Проверка
+kubectl get services nginx
+```
+
+## Добавление нод
+
+Добавить новую ноду в hosts.yaml
+Запустить:
+
+```bash
+ansible-playbook -i inventory/mycluster/hosts.yaml \
+  --become --become-user=root \
+  scale.yml
+```
+
+## Обновление кластера
+```bash
+ansible-playbook -i inventory/mycluster/hosts.yaml \
+  --become --become-user=root \
+  upgrade-cluster.yml
+```
+Важно: Перед обновлением проверьте release notes Kubespray!
+
+## Резервное копирование etcd
+```bash
+# Ручное создание бэкапа
+kubectl exec -n kube-system etcd-node1 -- \
+  etcdctl snapshot save /tmp/etcd-backup.db
+
+# Восстановление из бэкапа
+kubectl exec -n kube-system etcd-node1 -- \
+  etcdctl snapshot restore /tmp/etcd-backup.db
+```
+
+## 🎯 Рекомендации для продакшена
+
+### Безопасность
+- Настройка RBAC
+
+- Использование Network Policies
+
+- Регулярное обновление security patches
+
+### Мониторинг
+- Установка Prometheus + Grafana
+
+- Настройка алертинга
+
+- Логирование с помощью ELK стека
+
+### Резервное копирование
+- Регулярное создание бэкапов etcd
+
+- Использование Velero для резервного копирования приложений
+
+Это руководство покрывает все ключевые аспекты развертывания Kubernetes с помощью Kubespray.
