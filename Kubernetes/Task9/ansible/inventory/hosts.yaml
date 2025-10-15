@@ -1,0 +1,51 @@
+all:
+  hosts:
+    master-0:
+      ansible_host: 84.201.130.245
+      ansible_user: ubuntu
+      ip: 10.0.0.34
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.0.0.34
+    worker-0:
+      ansible_host: 10.0.0.23
+      ansible_user: ubuntu
+      ip: 10.0.0.23
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.0.0.23
+    worker-1:
+      ansible_host: 10.1.0.8
+      ansible_user: ubuntu
+      ip: 10.1.0.8
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.1.0.8
+    worker-2:
+      ansible_host: 10.2.0.21
+      ansible_user: ubuntu
+      ip: 10.2.0.21
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.2.0.21
+    worker-3:
+      ansible_host: 10.0.0.29
+      ansible_user: ubuntu
+      ip: 10.0.0.29
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.0.0.29
+  children:
+    kube_control_plane:
+      hosts:
+        master-0:
+    kube_node:
+      hosts:
+        worker-0:
+        worker-1:
+        worker-2:
+        worker-3:
+    etcd:
+      hosts:
+        master-0:
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+    calico_rr:
+      hosts: {}
