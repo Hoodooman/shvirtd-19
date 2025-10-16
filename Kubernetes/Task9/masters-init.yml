@@ -53,6 +53,9 @@ runcmd:
 
     # Configure containerd to use proxy
     containerd_use_http_proxy: true
+    
+    # Enable HAProxy as the load balancer for the Kubernetes API server
+    # loadbalancer_apiserver: true
     EOF
     echo 'Ansible ready to rock stady' > /home/ubuntu/install_complete.txt
     EOF

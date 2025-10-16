@@ -5,8 +5,8 @@ data "template_file" "mastersinit" {
   }  
 }
 
-data "template_file" "workersinit" {
-  template = file("workers-init.yml")
+data "template_file" "nodesinit" {
+  template = file("nodes-init.yml")
   vars = {
     ssh_keys = join("\n", [for key in var.ssh_public_keys: "      - ${key}"])
   }  
@@ -21,6 +21,7 @@ resource "yandex_compute_instance" "masters" {
   count = var.cnt_master
   name  = "master-${count.index}"
   # Используем длину списка зон для корректного распределения
+  # zone  = "ru-central1-${element(local.zones, count.index)}"  # Без modulo для уникальности зон
   zone  = "ru-central1-${element(local.zones, count.index % length(local.zones))}"
   platform_id       = "standard-v3"
 
@@ -38,12 +39,12 @@ resource "yandex_compute_instance" "masters" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.k8s-subnets[0].id
+    subnet_id = yandex_vpc_subnet.k8s-subnets[count.index % 3].id
     nat       = true # Публичный IP для доступа
   }
 
   metadata = {
-    user-data          = data.template_file.mastersinit.rendered
+    user-data          = count.index == 0 ? data.template_file.mastersinit.rendered : data.template_file.nodesinit.rendered
     serial-port-enable = 1
   }
 
@@ -51,19 +52,6 @@ resource "yandex_compute_instance" "masters" {
     preemptible = true # Control-plane не должен быть прерываемым !!!
   }
   
-  connection {
-    type        = "ssh" 
-    user        = "ubuntu"
-    private_key = file(pathexpand("~/.ssh/${var.pvk}"))
-    host        = yandex_compute_instance.masters[0].network_interface.0.nat_ip_address
-  }    
-
-  provisioner "remote-exec" {
-    inline = [
-      "timeout 180 bash -c 'while [ ! -f ${var.homedir}/install_complete.txt ]; do sleep 1; done'" // Ожидание создания файла не более 3 минут
-    ]
-  }
-
 }
 
 locals {
@@ -75,6 +63,7 @@ resource "yandex_compute_instance" "workers" {
   name  = "worker-${count.index}"
   # Используем длину списка зон для корректного распределения
   zone  = "ru-central1-${element(local.zones, count.index % length(local.zones))}"
+  # zone  = "ru-central1-${element(local.zones, count.index)}"  # Без modulo для уникальности зон
   platform_id       = "standard-v3"
 
   resources {
@@ -96,7 +85,7 @@ resource "yandex_compute_instance" "workers" {
   }
 
   metadata = {
-    user-data          = data.template_file.workersinit.rendered
+    user-data          = data.template_file.nodesinit.rendered
     serial-port-enable = 1
   }  
 
@@ -105,8 +94,24 @@ resource "yandex_compute_instance" "workers" {
   }
 }
 
+resource "null_resource" "wait_for_control_plane" {
+  depends_on = [yandex_compute_instance.masters[0]]
+  connection {
+    type        = "ssh" 
+    user        = "ubuntu"
+    private_key = file(pathexpand("~/.ssh/${var.pvk}"))
+    host        = yandex_compute_instance.masters[0].network_interface.0.nat_ip_address
+  }    
+
+  provisioner "remote-exec" {
+    inline = [
+      "timeout 180 bash -c 'while [ ! -f ${var.homedir}/install_complete.txt ]; do sleep 1; done'"
+    ]
+  }
+}
+
 resource "null_resource" "private_key_ansible" {
-  depends_on = [yandex_compute_instance.masters, yandex_compute_instance.workers]
+  depends_on = [yandex_compute_instance.masters[0], yandex_compute_instance.workers, null_resource.wait_for_control_plane]
   connection {
     type        = "ssh" 
     user        = "ubuntu"
@@ -128,16 +133,10 @@ resource "null_resource" "private_key_ansible" {
     destination = "${var.homedir}/kubespray/inventory/mycluster/hosts.yaml"  # Temporary, writable location
   }
 
-  # # Step 2: Move the file and set ownership via sudo
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "mv /tmp/hosts.yaml ${var.homedir}/kubespray/inventory/mycluster/hosts.yaml",
-  #   ]
-  # }
 }
 
 resource "null_resource" "proxy" {
-  depends_on = [yandex_compute_instance.masters, null_resource.private_key_ansible]
+  depends_on = [yandex_compute_instance.masters[0], null_resource.private_key_ansible]
   provisioner "local-exec" {
     command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory/hosts.yaml --become --become-user=root ansible/setup_proxy.yml"
   }
@@ -156,7 +155,7 @@ resource "null_resource" "kubeadm_config" {
     inline = [
       ". ${var.homedir}/kubespray/venv/bin/activate",
       "cd ${var.homedir}/kubespray",
-      "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory/mycluster/hosts.yaml --become --become-user=root cluster.yml -vvvvv"
+      "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory/mycluster/hosts.yaml --become --become-user=root cluster.yml"
     ]
   }
 }

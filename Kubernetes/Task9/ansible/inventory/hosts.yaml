@@ -1,39 +1,53 @@
 all:
   hosts:
     master-0:
-      ansible_host: 84.201.130.245
+      ansible_host: 158.160.122.114
       ansible_user: ubuntu
-      ip: 10.0.0.34
+      ip: 10.0.0.16
       ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
-      access_ip: 10.0.0.34
+      access_ip: 10.0.0.16
+    master-1:
+      ansible_host: 89.169.163.108
+      ansible_user: ubuntu
+      ip: 10.1.0.24
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.1.0.24
+    master-2:
+      ansible_host: 158.160.170.183
+      ansible_user: ubuntu
+      ip: 10.2.0.9
+      ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
+      access_ip: 10.2.0.9
     worker-0:
-      ansible_host: 10.0.0.23
+      ansible_host: 10.0.0.15
       ansible_user: ubuntu
-      ip: 10.0.0.23
+      ip: 10.0.0.15
       ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
-      access_ip: 10.0.0.23
+      access_ip: 10.0.0.15
     worker-1:
-      ansible_host: 10.1.0.8
+      ansible_host: 10.1.0.26
       ansible_user: ubuntu
-      ip: 10.1.0.8
+      ip: 10.1.0.26
       ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
-      access_ip: 10.1.0.8
+      access_ip: 10.1.0.26
     worker-2:
-      ansible_host: 10.2.0.21
+      ansible_host: 10.2.0.5
       ansible_user: ubuntu
-      ip: 10.2.0.21
+      ip: 10.2.0.5
       ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
-      access_ip: 10.2.0.21
+      access_ip: 10.2.0.5
     worker-3:
-      ansible_host: 10.0.0.29
+      ansible_host: 10.0.0.11
       ansible_user: ubuntu
-      ip: 10.0.0.29
+      ip: 10.0.0.11
       ansible_ssh_private_key_file: ~/.ssh/shvirtd-19_pvk
-      access_ip: 10.0.0.29
+      access_ip: 10.0.0.11
   children:
     kube_control_plane:
       hosts:
         master-0:
+        master-1:
+        master-2:
     kube_node:
       hosts:
         worker-0:
@@ -43,6 +57,8 @@ all:
     etcd:
       hosts:
         master-0:
+        master-1:
+        master-2:
     k8s_cluster:
       children:
         kube_control_plane:
