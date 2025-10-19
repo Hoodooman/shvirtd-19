@@ -1,0 +1,38 @@
+#cloud-config
+users:
+  - name: ubuntu
+    groups: sudo
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+${ssh_keys}
+
+package_update: true
+package_upgrade: true
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - git
+  - net-tools 
+  - iproute2
+
+runcmd:
+  #Обновление пакетов:
+  - sudo apt update
+  #Установка Python:
+  - sudo apt install python3.10-venv python3.10-dev -y
+  ## Установка ansible
+    # Запуск команд от имени пользователя ubuntu
+  - |
+    sudo -i -u ubuntu bash <<EOF
+    git clone https://github.com/kubernetes-sigs/kubespray.git
+    cd kubespray
+    python3 -m venv venv
+    . venv/bin/activate
+    pip install -r requirements.txt
+    mkdir -p /home/ubuntu/kubespray/inventory/mycluster
+    mkdir -p /home/ubuntu/kubespray/inventory/mycluster/group_vars
+    mkdir -p /home/ubuntu/kubespray/inventory/mycluster/kubernetes-lb
+    echo 'Ansible ready to rock stady' > /home/ubuntu/install_complete.txt
+    EOF

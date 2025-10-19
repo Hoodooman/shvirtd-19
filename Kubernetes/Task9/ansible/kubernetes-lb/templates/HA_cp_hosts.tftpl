@@ -1,0 +1,4 @@
+[control_nodes]
+%{ for idx, master in masters }
+master-${idx} ansible_host=${master.network_interface[0].ip_address}
+%{ endfor }

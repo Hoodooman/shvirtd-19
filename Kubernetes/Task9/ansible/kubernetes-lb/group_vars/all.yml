@@ -1,0 +1,25 @@
+---
+# Cluster configuration
+cluster_vip: 10.0.0.33
+cluster_vip_netmask: "24"
+network_interface: "eth0"
+
+# Control nodes
+control_nodes:
+  master-0:
+    ip: 10.0.0.33
+    priority: 101
+    state: "MASTER"
+  master-1:
+    ip: 10.1.0.22
+    priority: 100
+    state: "BACKUP"
+  master-2:
+    ip: 10.2.0.23
+    priority: 100
+    state: "BACKUP"
+
+# HAProxy configuration
+haproxy_frontend_port: 7443
+haproxy_backend_port: 6443
+haproxy_stats_port: 9000

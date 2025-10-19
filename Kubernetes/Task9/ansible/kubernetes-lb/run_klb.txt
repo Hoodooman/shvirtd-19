@@ -1,0 +1,1 @@
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts.ini --private-key=~/.ssh/shvirtd-19_pvk playbook.yml

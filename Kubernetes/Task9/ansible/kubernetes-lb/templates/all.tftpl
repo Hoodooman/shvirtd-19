@@ -1,0 +1,17 @@
+---
+# Cluster configuration
+cluster_vip: ${masters[0].network_interface[0].ip_address}
+cluster_vip_netmask: "24"
+network_interface: "eth0"
+
+# Control nodes
+control_nodes:%{ for idx, master in masters }
+  master-${idx}:
+    ip: ${master.network_interface[0].ip_address}
+    priority: ${idx == 0 ? 101 : 100}
+    state: "${idx == 0 ? "MASTER" : "BACKUP"}"%{ endfor }
+
+# HAProxy configuration
+haproxy_frontend_port: 7443
+haproxy_backend_port: 6443
+haproxy_stats_port: 9000
