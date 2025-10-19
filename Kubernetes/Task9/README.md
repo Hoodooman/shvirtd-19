@@ -16,7 +16,7 @@
 
 ![Task2_4](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task9/data/Task2_4.png)
 
-Запускаем конфигурирование HAProxy+keepalive
+Запускаем конфигурирование HAProxy+keepalive [kubernetes-lb](https://github.com/Hoodooman/shvirtd-19/tree/main/Kubernetes/Task9/ansible/kubernetes-lb)
 
 ```bash
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts.ini --private-key=~/.ssh/shvirtd-19_pvk playbook.yml
