@@ -37,7 +37,7 @@ resource "yandex_compute_instance" "jumpbox" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.k8s-subnets[0].id
+    subnet_id = yandex_vpc_subnet.k8s-public[0].id
     nat       = true # Публичный IP для доступа
   }
 
@@ -76,8 +76,9 @@ resource "yandex_compute_instance" "masters" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.k8s-subnets[count.index % 3].id
+    subnet_id = yandex_vpc_subnet.k8s-public[count.index % 3].id
     nat       = true # Публичный IP для доступа
+    # security_group_ids = [yandex_vpc_security_group.nat.id] 
   }
 
   metadata = {
@@ -87,7 +88,7 @@ resource "yandex_compute_instance" "masters" {
   }
 
   scheduling_policy {
-    preemptible = false # Control-plane не должен быть прерываемым !!!
+    preemptible = true # Control-plane не должен быть прерываемым !!!
   }
   
 }
@@ -118,8 +119,9 @@ resource "yandex_compute_instance" "workers" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.k8s-subnets[count.index % 3].id
+    subnet_id = yandex_vpc_subnet.k8s-private[count.index % 3].id
     nat       = false # Worker-нодам не нужны публичные IP
+    # security_group_ids = [yandex_vpc_security_group.private.id] 
   }
 
   metadata = {
@@ -172,27 +174,14 @@ resource "null_resource" "private_key_ansible" {
   }
 
   provisioner "file" {
-    source      = "./ansible/inventory/k8s_cluster.yml"
-    destination = "${var.homedir}/kubespray/inventory/mycluster/group_vars/k8s_cluster.yml"  # Temporary, writable location
-  }  
-
-  provisioner "file" {
     source      = "./ansible/kubernetes-lb"
     destination = "${var.homedir}/kubespray/inventory/mycluster"  # Temporary, writable location
   }  
 
 }
 
-resource "null_resource" "proxy" {
-  depends_on = [yandex_compute_instance.masters[0], null_resource.private_key_ansible]
-  provisioner "local-exec" {
-    # command = "echo 'skip proxy'"
-    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i ansible/inventory/hosts.yaml --become --become-user=root ansible/setup_proxy.yml"
-  }
-}
-
 resource "null_resource" "kubeadm_config" {
-  depends_on = [yandex_compute_instance.masters, yandex_compute_instance.workers, null_resource.private_key_ansible, null_resource.proxy]
+  depends_on = [yandex_compute_instance.masters, yandex_compute_instance.workers, null_resource.private_key_ansible]
 
   provisioner "remote-exec" {
   connection {

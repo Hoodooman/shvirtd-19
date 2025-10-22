@@ -1,5 +1,0 @@
-http_proxy: "http://10.0.0.33:3128"
-https_proxy: "http://10.0.0.33:3128"
-no_proxy: "localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,10.96.0.0/12,.svc,.svc.cluster.local,.cluster.local"
-
-containerd_use_http_proxy: true

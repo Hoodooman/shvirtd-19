@@ -1,66 +1,57 @@
 ---
-- name: Configure Kubernetes Load Balancer with Keepalived and HAProxy
-  hosts: control_nodes
+- name: Install HA on control nodes
+  hosts: kube_control_plane
   become: yes
   vars:
-    virtual_router_id: 51
+    ansible_python_interpreter: /usr/bin/python3   
+    ha_cluster_virtual_ip: "10.0.1.100"
+    ha_cluster_virtual_port: "7443" 
   tasks:
-    - name: Install keepalived and haproxy
+    - name: Set sysctl
+      sysctl:
+        name: "net.ipv4.ip_nonlocal_bind"
+        value: "1"
+        sysctl_set: yes
+        state: present
+        ignoreerrors: yes
+
+    - name: Install packages Debian
+      when: ansible_os_family == "Debian"
       apt:
         name:
           - keepalived
           - haproxy
         state: present
-        update_cache: yes
 
-    - name: Create HAProxy configuration
+    - name: Copy keepalived.conf to master
       template:
-        src: haproxy.cfg.j2
-        dest: /etc/haproxy/haproxy.cfg
-        owner: root
-        group: root
-        mode: 0644
-      notify: restart haproxy
-
-    - name: Create Keepalived configuration
-      template:
-        src: keepalived.conf.j2
+        src: keepalived.j2
         dest: /etc/keepalived/keepalived.conf
-        owner: root
-        group: root
-        mode: 0644
-      notify: restart keepalived
+      register: keepalived_conf
 
-    - name: Enable and start HAProxy
-      systemd:
-        name: haproxy
-        enabled: yes
+    - name: Copy haproxy haproxy.cfg
+      template:
+        src: haproxy.j2
+        dest: /etc/haproxy/haproxy.cfg
+      register: haproxy_conf
+
+    - name: Enable keepalived and haproxy
+      service:
+        name: "{{ item }}"
         state: started
-
-    - name: Validate HAProxy configuration
-      command: haproxy -f /etc/haproxy/haproxy.cfg -c
-      register: haproxy_check
-      failed_when: haproxy_check.rc != 0
-    
-    - name: Restart HAProxy if config is valid
-      systemd:
-        name: haproxy
-        state: restarted
-      when: haproxy_check.rc == 0        
-
-    - name: Enable and start Keepalived
-      systemd:
-        name: keepalived
         enabled: yes
-        state: started
+      with_items:
+        - keepalived
+        - haproxy
 
-  handlers:
-    - name: restart haproxy
-      systemd:
-        name: haproxy
-        state: restarted
-
-    - name: restart keepalived
-      systemd:
+    - name: Restart keepalived
+      service:
         name: keepalived
         state: restarted
+      when: keepalived_conf.changed
+
+    - name: Restart haproxy
+      service:
+        name: haproxy
+        state: restarted
+      when: haproxy_conf.changed
