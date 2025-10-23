@@ -40,3 +40,28 @@
  - Подготовка к откату: Иметь под рукой готовый скрипт или команду для быстрого отката обновления одной реплики на старую версию, если что-то пойдет не так.
 
 # Решение Задание 2
+
+Создаем пространство имен nginx, разворачиваем [dev-119.yaml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/dev-119.yaml)
+
+![Task1](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/data/Task1.png)
+
+Убеждаемся в версии образа - 1.19:
+
+![Task1_2](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/data/Task1_2.png)
+
+Разворачиваем версию 1.20 [dev-120.yaml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/dev-120.yaml)
+
+![Task1_3](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/data/Task1_3.png)
+
+Убеждаемся в версии образа - 1.20:
+
+![Task1_4](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/data/Task1_4.png)
+
+На данный момент последняя версия 1.30.*, выберем не существующую 1.31, развернем [dev-131.yaml](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/dev-131.yaml)
+Видим что такого образа нет, получаем ошибку (ErrImagePull). Откатываем до предыдущей версии.
+```bash
+kubectl rollout history deployment/nginx-multitool -n nginx
+kubectl rollout undo deployment/nginx-multitool -n nginx --to-revision=3
+```
+
+![Task1_5](https://github.com/Hoodooman/shvirtd-19/blob/main/Kubernetes/Task11/data/Task1_5.png)
