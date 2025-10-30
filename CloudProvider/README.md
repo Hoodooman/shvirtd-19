@@ -21,6 +21,8 @@ terraform apply
 
 ![Task2_2](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task2_2.png)
 
+![Task2_2_1](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task2_2_1.png)
+
 Доступ по https есть:
 
 ![Task2_3](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task2_3.png)
