@@ -9,7 +9,7 @@ terraform apply
 ![Task1](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task1.png)
 
  - 2
-Создаем домен статичный сайт, привязываем к домену cloudhw.com;
+Создаем статичный сайт, привязываем к домену cloudhw.com;
 
 ![Task2_1](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task2_1.png)
 
@@ -27,4 +27,5 @@ terraform apply
 
 ![Task2_3](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task3/data/Task2_3.png)
  
+
 
