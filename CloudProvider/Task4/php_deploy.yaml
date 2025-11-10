@@ -1,0 +1,91 @@
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: phpmyadmin-user-config
+# data:
+#   config.user.inc.php: |
+#     <?php
+#     $cfg['ForceSSL'] = false;
+#     $cfg['AllowArbitraryServer'] = false;
+#     $cfg['Servers'][1]['ssl'] = false;
+#     $cfg['Servers'][1]['ssl_verify'] = false;
+#     ?>
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mysql-cloud-task4
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: mysql-cloud-task4
+type: Opaque
+data:
+  root-password: ZGJQYXNzdzByZAo= # dbPassw0rd в base64
+  username: bmV0b2xvZ3kK # netology в base64
+  password: ZGJQYXNzdzByZAo= # dbPassw0rd в base64   
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pma-deployment
+  namespace: mysql-cloud-task4
+  labels:
+    app: phpmyadmin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: phpmyadmin
+  template:
+    metadata:
+      labels:
+        app: phpmyadmin
+    spec:
+      containers:
+        - name: phpmyadmin
+          image: phpmyadmin/phpmyadmin
+          resources:
+            requests:
+              memory: "128Mi"
+            limits:
+              memory: "256Mi"
+          ports:
+            - containerPort: 80
+          env:
+            - name: PMA_HOST
+              value: rc1b-81cq8rn9utfhp9h6.mdb.yandexcloud.net            
+            - name: PMA_PORT
+              value: "3306"  
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: root-password
+            - name: UPLOAD_LIMIT
+              value: "300M"                         
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pma-service
+  namespace: mysql-cloud-task4  
+spec:
+  selector:
+    app: phpmyadmin
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 80
+  # - name: https
+  #   port: 8443
+  #   targetPort: 443
+  type: LoadBalancer          
+
