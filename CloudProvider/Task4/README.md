@@ -40,7 +40,7 @@ resource "yandex_vpc_security_group" "mysql_k8s_access" {
 
 ![6](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task4/data/k8s_mysql_51.png)
 
-
+![7](https://github.com/Hoodooman/shvirtd-19/blob/main/CloudProvider/Task4/data/k8s_mysql_6.png)
 
 
 
