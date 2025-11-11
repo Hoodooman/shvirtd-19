@@ -34,16 +34,36 @@ module "vpc" {
   ]
 }
 
+# Security group for MySQL cluster allowing K8s access
+resource "yandex_vpc_security_group" "mysql_k8s_access" {
+  name        = "mysql-k8s-access"
+  network_id  = module.vpc.vpc_id
+
+  ingress {
+    protocol       = "TCP"
+    port           = 3306
+    v4_cidr_blocks = ["10.96.0.0/16", "10.112.0.0/16"] # K8s service CIDRs
+    description    = "Allow MySQL access from K8s cluster"
+  }
+
+  ingress {
+    protocol       = "TCP"
+    port           = 3306
+    v4_cidr_blocks = ["10.121.0.0/24", "10.131.0.0/24", "10.141.0.0/24"] # K8s node subnet CIDR
+    description    = "Allow MySQL access from K8s nodes"
+  }
+}
+
 module "moex_cluster" {
   source        = "github.com/terraform-yc-modules/terraform-yc-mysql"
   depends_on    = [module.vpc]
     
   network_id    = module.vpc.vpc_id
-  description              = "Multi-node MySQL cluster for test purposes"
+  description   = "Multi-node MySQL cluster for test purposes"
 
   name    = "netology-mysql"
   environment     = "PRESTABLE"
-  
+  security_groups_ids_list = [yandex_vpc_security_group.mysql_k8s_access.id]
   
   # Конфигурация хостов для отказоустойчивости across AZ
   hosts_definition = [
@@ -195,7 +215,7 @@ module "k8s" {
   custom_egress_rules = {
     "rule1" = {
       protocol       = "ANY"
-      description    = "rule-1"
+      description    = "rule-2"
       v4_cidr_blocks = ["0.0.0.0/0"]
       from_port      = 0
       to_port        = 65535
