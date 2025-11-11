@@ -46,4 +46,3 @@ resource "yandex_vpc_security_group" "mysql_k8s_access" {
 
 
 
-
